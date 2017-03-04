@@ -23,8 +23,8 @@ import edu.wpi.first.wpilibj.vision.VisionThread;
  */
 public class Robot extends IterativeRobot {
 	//smartdashboard stuff
-    final String defaultAuto = "Default";
-    final String customAuto = "My Auto";
+    final String left = "Left";
+    final String right = "Right";
     String autoSelected;
     SendableChooser chooser;
     
@@ -106,8 +106,8 @@ public class Robot extends IterativeRobot {
 	
     public void robotInit() {
         chooser = new SendableChooser();
-        chooser.addDefault("Default Auto", defaultAuto);
-        chooser.addObject("My Auto", customAuto);
+        chooser.addDefault("Left", left);
+        chooser.addObject("Right", right);
         SmartDashboard.putData("Auto choices", chooser);
         c.setClosedLoopControl(true);
         
@@ -220,7 +220,7 @@ public class Robot extends IterativeRobot {
      */
     public void autonomousPeriodic(){
     	switch(autoSelected) {
-    	case customAuto://left
+    	case left://left
     		if(autonomousStep==0){//Initialize stuff like gyro
     			gyro.reset();
     			liftClaw.set(true);
@@ -288,9 +288,74 @@ public class Robot extends IterativeRobot {
     			autonomousStep++;
     		}
             break;
-    	case defaultAuto:
+    	case right:
     	default:
-    	//Put default auto code here
+    		if(autonomousStep==0){//Initialize stuff like gyro
+    			gyro.reset();
+    			liftClaw.set(true);
+    			autonomousStep++;
+    		}else if(autonomousStep == 1){//drive forward until at the right distance
+			    if(backRangefinder.getAverageValue()*1024 < 0/*put real number here*/){
+	    			autonMotorSpeed = rampUp(autonMotorSpeed, .03, THREE_QUARTERS_SPEED);
+			        drive.arcadeDrive(autonMotorSpeed, gyro.getAngle()*-0.03);
+		        }else{
+		        	autonomousStep++;
+		        }
+    		}else if(autonomousStep==2){//stop driving until stopped
+    			if(autonMotorSpeed !=0){
+	    			autonMotorSpeed = rampDown(autonMotorSpeed, .05, 0);
+			        drive.arcadeDrive(autonMotorSpeed, gyro.getAngle()*-0.03);
+    			}else{
+    				autonomousStep++;
+    				gyro.reset();
+    			}
+    		}else if(autonomousStep==3){//rotate towards peg until rotated
+    			if(gyro.getAngle()>-60){
+    				drive.arcadeDrive(0, -.2);
+    			}else{
+    				autonomousStep++;
+    				gyro.reset();
+    			}
+    		}else if(autonomousStep==4){//drive towards peg until at specified distance
+    			if(frontRangefinder.getAverageValue()*1024 > 300/*Specified distance*/){
+    				autonMotorSpeed = rampUp(autonMotorSpeed,.01,.2);
+	    			drive.arcadeDrive(autonMotorSpeed, (turnAverage * 0.005));
+	    			double centerX;
+	    			synchronized (imgLock) {
+	    				centerX = this.centerX;
+	    			}
+	    			double turn = centerX - (IMG_WIDTH / 2);
+	    			turn*=3;
+	    			if(turn>120){
+	    				turn = 120;
+	    			}
+	    			else if(turn<-120){
+	    				turn = -120;
+	    			}
+	    			for(int i = prevTurnValues.length-1; i>0; i--){
+	    				prevTurnValues[i] = prevTurnValues[i-1];
+	    			}
+	    			prevTurnValues[0] = turn;
+	    			valsUsed = 0;
+	    			turnAverage = 0;
+	    			for(int i = 0; i<prevTurnValues.length; i++){
+	    				if(prevTurnValues[i]!=0){
+	    					turnAverage+=prevTurnValues[i];
+	    					valsUsed++;
+	    				}
+	    			}
+	    			turnAverage = turnAverage/valsUsed;
+	    			if(valsUsed == 0){
+	    				turnAverage = 0;
+	    			}
+    			}else{
+    				drive.arcadeDrive(0,0);
+    				autonomousStep++;
+    			}
+    		}else if (autonomousStep == 5){//open claw
+    			grabClaw.set(DoubleSolenoid.Value.kReverse);
+    			autonomousStep++;
+    		}
             break;
     	}
     }
@@ -389,5 +454,4 @@ public class Robot extends IterativeRobot {
     public void testPeriodic() {
     
     }
-    
 }
