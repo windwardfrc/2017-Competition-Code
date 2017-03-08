@@ -25,6 +25,7 @@ public class Robot extends IterativeRobot {
 	//smartdashboard stuff
     final String left = "Left";
     final String right = "Right";
+    final String center = "Center";
     String autoSelected;
     SendableChooser chooser;
     
@@ -106,7 +107,8 @@ public class Robot extends IterativeRobot {
 	
     public void robotInit() {
         chooser = new SendableChooser();
-        chooser.addDefault("Left", left);
+        chooser.addDefault("Center", center);
+        chooser.addObject("Left", left);
         chooser.addObject("Right", right);
         SmartDashboard.putData("Auto choices", chooser);
         c.setClosedLoopControl(true);
@@ -220,6 +222,48 @@ public class Robot extends IterativeRobot {
      */
     public void autonomousPeriodic(){
     	switch(autoSelected) {
+    	case center://center
+    		if(autonomousStep==0){//drive towards peg until at specified distance
+    			if(frontRangefinder.getAverageValue()*1024 > 300/*Specified distance*/){
+    				autonMotorSpeed = rampUp(autonMotorSpeed,.01,.2);
+	    			drive.arcadeDrive(autonMotorSpeed, (turnAverage * 0.005));
+	    			double centerX;
+	    			synchronized (imgLock) {
+	    				centerX = this.centerX;
+	    			}
+	    			double turn = centerX - (IMG_WIDTH / 2);
+	    			turn*=3;
+	    			if(turn>120){
+	    				turn = 120;
+	    			}
+	    			else if(turn<-120){
+	    				turn = -120;
+	    			}
+	    			for(int i = prevTurnValues.length-1; i>0; i--){
+	    				prevTurnValues[i] = prevTurnValues[i-1];
+	    			}
+	    			prevTurnValues[0] = turn;
+	    			valsUsed = 0;
+	    			turnAverage = 0;
+	    			for(int i = 0; i<prevTurnValues.length; i++){
+	    				if(prevTurnValues[i]!=0){
+	    					turnAverage+=prevTurnValues[i];
+	    					valsUsed++;
+	    				}
+	    			}
+	    			turnAverage = turnAverage/valsUsed;
+	    			if(valsUsed == 0){
+	    				turnAverage = 0;
+	    			}
+    			}else{
+    				drive.arcadeDrive(0,0);
+    				autonomousStep++;
+    			}
+    		}else if (autonomousStep == 1){//open claw
+    			grabClaw.set(DoubleSolenoid.Value.kReverse);
+    			autonomousStep++;
+    		}
+            break;
     	case left://left
     		if(autonomousStep==0){//Initialize stuff like gyro
     			gyro.reset();
