@@ -417,7 +417,7 @@ public class Robot extends IterativeRobot {
     	for(int i = 0; i < buttonState.length; i++){
     		buttonState[i] = j.getRawButton(i+1);
     	}
-    	throttleValue = (j.getThrottle() + 1)/2;
+    	throttleValue = (j.getThrottle() - 1)/2;
     	
     	//if button #3 is HELD, run the vision processing, otherwise drive
 		if(buttonState[2]){
