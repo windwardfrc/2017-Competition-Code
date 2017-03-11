@@ -467,17 +467,17 @@ public class Robot extends IterativeRobot {
     	}
     	if(buttonState[1]&&!prevButtonState[1]){
     		if(liftClaw.get()){
-    			liftClaw.set(true);
-    		}else{
     			liftClaw.set(false);
+    		}else{
+    			liftClaw.set(true);
     		}
     	}
     	
     	//set winches to forward or backwards depending on the button
-    	if(buttonState[11]){
+    	if(buttonState[10]){
     		CANTalonList[4].set(throttleValue);
     		CANTalonList[5].set(-throttleValue);
-    	}else if(buttonState[10]){
+    	}else if(buttonState[11]){
     		CANTalonList[4].set(-throttleValue);
     		CANTalonList[5].set(throttleValue);
     	}else{
