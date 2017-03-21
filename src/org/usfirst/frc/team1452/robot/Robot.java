@@ -35,9 +35,7 @@ public class Robot extends IterativeRobot {
     AnalogGyro gyro = new AnalogGyro(0);
     UsbCamera mainCamera;
     UsbCamera winchCamera;
-    DigitalInput winchSensor1 = new DigitalInput(0);
-    DigitalInput winchSensor2 = new DigitalInput(1);
-    DigitalInput clawSensor = new DigitalInput(2);
+    DigitalInput clawButton = new DigitalInput(0);
     
     //joystick stuff
     Boolean[] buttonState = new Boolean[12];//THE BUTTON STATES ARE 1 LESS THAN THE NUMBER PRINTED ON THE JOYSTICK
@@ -58,6 +56,9 @@ public class Robot extends IterativeRobot {
     //misc stuff
     Boolean firstTime = true;
     int autonomousStep = 0;
+    Timer timer = new Timer();
+    boolean clawButtonState;
+    boolean prevClawButtonState;
     final double FULL_SPEED = 1.0;
 	final double THREE_QUARTERS_SPEED = .75;
 	final double HALF_SPEED = .5;
@@ -417,6 +418,7 @@ public class Robot extends IterativeRobot {
     	for(int i = 0; i < buttonState.length; i++){
     		buttonState[i] = j.getRawButton(i+1);
     	}
+    	clawButtonState = clawButton.get();
     	throttleValue = (j.getThrottle() - 1)/2;
     	
     	//if button #3 is HELD, run the vision processing, otherwise drive
@@ -458,6 +460,14 @@ public class Robot extends IterativeRobot {
 		}
 		
 		//do pneumatics
+		if(clawButtonState&&!prevClawButtonState){
+			grabClaw.set(DoubleSolenoid.Value.kForward);
+			timer.start();
+		}if(timer.get()>=.15){//the second number is in seconds
+			liftClaw.set(true);
+			timer.stop();
+			timer.reset();
+		}
     	if(buttonState[0]&&!prevButtonState[0]){
     		if(grabClaw.get().equals(DoubleSolenoid.Value.kForward)){
     			grabClaw.set(DoubleSolenoid.Value.kReverse);
@@ -490,6 +500,7 @@ public class Robot extends IterativeRobot {
         for(int i = 0; i < prevButtonState.length; i++){
     		prevButtonState[i] = j.getRawButton(i+1);
     	}
+        prevClawButtonState = clawButton.get();
     }
     
     /**
