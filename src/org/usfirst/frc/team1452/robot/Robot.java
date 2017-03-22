@@ -29,6 +29,41 @@ public class Robot extends IterativeRobot {
     String autoSelected;
     SendableChooser chooser;
     
+    
+    
+    
+    
+    
+    
+    
+    
+    ///////////////////////CHANGE STUFF HERE////////////////////////**/
+    /**/DoubleSolenoid.Value open = DoubleSolenoid.Value.kForward; /**/
+    /**/DoubleSolenoid.Value close = DoubleSolenoid.Value.kReverse;/**/
+    /**/////////////////////////////////////////////////////////////**/
+    /**/boolean up = true;                                         /**/
+    /**/boolean down = false;                                      /**/
+    /**/////////////////////////////////////////////////////////////**/
+    /**/double delayOfLift = .25;                                  /**/
+    /**/////////////////////////////////////////////////////////////**/
+    /**/int winchUpBtn = 11;                                       /**/
+    /**/int winchDownBtn = 10;                                     /**/
+    /**/////////////////////////////////////////////////////////////**/
+    /**/int visionProcessingBtn = 2;                               /**/
+    /**/int cameraToggleBtn = 3;                                   /**/
+    /**/////////////////////////////////////////////////////////////**/
+    /**/int grabClawBtn = 0;                                       /**/
+    /**/int liftClawBtn = 1;                                       /**/
+    /**/////////////////////////////////////////////////////////////**/
+    
+    
+    
+    
+    
+    
+    
+    
+    
     //sensor stuff
     AnalogInput frontRangefinder = new AnalogInput(1);
     AnalogInput backRangefinder = new AnalogInput(2);
@@ -154,7 +189,8 @@ public class Robot extends IterativeRobot {
 	    visionThread = new Thread(() -> {
 			// Get the UsbCamera from CameraServer
 			// Set the resolution
-
+	    	boolean cameraToggleBtnState;
+	    	boolean prevCameraToggleBtnState = false;
 			// Get a CvSink. This will capture Mats from the camera
 			CvSink cvSink0 = CameraServer.getInstance().getVideo(camera0);
 			CvSink cvSink1 = CameraServer.getInstance().getVideo(camera1);
@@ -171,11 +207,9 @@ public class Robot extends IterativeRobot {
 			while (!Thread.interrupted()) {
 				// Tell the CvSink to grab a frame from the camera and put it
 				// in the source mat.  If there is an error notify the output.
-				if(j.getRawButton(5)){
-					cam0 = true;
-				}
-				if(j.getRawButton(6)){
-					cam0 = false;
+				cameraToggleBtnState = j.getRawButton(cameraToggleBtn);
+				if(cameraToggleBtnState&&!prevCameraToggleBtnState){
+					cam0 = !cam0;
 				}
 				if(cam0){
 					if (cvSink0.grabFrame(mat) == 0) {
@@ -196,6 +230,7 @@ public class Robot extends IterativeRobot {
 				// Put a rectangle on the image
 				// Give the output stream a new image to display
 				outputStream.putFrame(mat);
+				prevCameraToggleBtnState = j.getRawButton(cameraToggleBtn);
 			}
 		});
 	    visionThread.start();
@@ -410,8 +445,9 @@ public class Robot extends IterativeRobot {
      */
     public void teleopPeriodic() {
     	if(firstTime){//if this is the first time running the teleopPeriodic loop
-    		grabClaw.set(DoubleSolenoid.Value.kForward);
+    		grabClaw.set(DoubleSolenoid.Value.kReverse);
     		liftClaw.set(true);
+    		timer.reset();
     		firstTime = false;
     	}
     	//set the button states and throttle value
@@ -419,10 +455,11 @@ public class Robot extends IterativeRobot {
     		buttonState[i] = j.getRawButton(i+1);
     	}
     	clawButtonState = clawButton.get();
+    	SmartDashboard.putBoolean("Claw Button", clawButton.get());
     	throttleValue = (j.getThrottle() - 1)/2;
     	
     	//if button #3 is HELD, run the vision processing, otherwise drive
-		if(buttonState[2]){
+		if(buttonState[visionProcessingBtn]){
 			drive.arcadeDrive(0, (turnAverage * 0.005));
 			double centerX;
 			synchronized (imgLock) {
@@ -463,31 +500,32 @@ public class Robot extends IterativeRobot {
 		if(clawButtonState&&!prevClawButtonState){
 			grabClaw.set(DoubleSolenoid.Value.kForward);
 			timer.start();
-		}if(timer.get()>=.15){//the second number is in seconds
-			liftClaw.set(true);
+		}
+		if(timer.get()>=delayOfLift){
+			liftClaw.set(false);
 			timer.stop();
 			timer.reset();
 		}
-    	if(buttonState[0]&&!prevButtonState[0]){
-    		if(grabClaw.get().equals(DoubleSolenoid.Value.kForward)){
-    			grabClaw.set(DoubleSolenoid.Value.kReverse);
+    	if(buttonState[grabClawBtn]&&!prevButtonState[grabClawBtn]){
+    		if(grabClaw.get().equals(close)){
+    			grabClaw.set(open);
     		}else{
-    			grabClaw.set(DoubleSolenoid.Value.kForward);
+    			grabClaw.set(close);
     		}
     	}
-    	if(buttonState[1]&&!prevButtonState[1]){
-    		if(liftClaw.get()){
-    			liftClaw.set(false);
+    	if(buttonState[liftClawBtn]&&!prevButtonState[liftClawBtn]){
+    		if(liftClaw.get()==up){
+    			liftClaw.set(down);
     		}else{
-    			liftClaw.set(true);
+    			liftClaw.set(up);
     		}
     	}
     	
     	//set winches to forward or backwards depending on the button
-    	if(buttonState[10]){
+    	if(buttonState[winchUpBtn]){
     		CANTalonList[4].set(throttleValue);
     		CANTalonList[5].set(-throttleValue);
-    	}else if(buttonState[11]){
+    	}else if(buttonState[winchDownBtn]){
     		CANTalonList[4].set(-throttleValue);
     		CANTalonList[5].set(throttleValue);
     	}else{
