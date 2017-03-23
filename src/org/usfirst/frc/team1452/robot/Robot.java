@@ -37,7 +37,9 @@ public class Robot extends IterativeRobot {
     
     
     
-    ///////////////////////CHANGE STUFF HERE////////////////////////**/
+    ///////////////////////_________________////////////////////////**/
+    /**////////////////////|ROBOT CONSTANTS|////////////////////////**/
+    /**////////////////////|_______________|////////////////////////**/
     /**/DoubleSolenoid.Value open = DoubleSolenoid.Value.kForward; /**/
     /**/DoubleSolenoid.Value close = DoubleSolenoid.Value.kReverse;/**/
     /**/////////////////////////////////////////////////////////////**/
@@ -46,18 +48,36 @@ public class Robot extends IterativeRobot {
     /**/////////////////////////////////////////////////////////////**/
     /**/double delayOfLift = .25;                                  /**/
     /**/////////////////////////////////////////////////////////////**/
-    /**/int winchUpBtn = 11;                                       /**/
-    /**/int winchDownBtn = 10;                                     /**/
-    /**/////////////////////////////////////////////////////////////**/
+    /**/boolean frontRightReverse = true;                          /**/
+    /**/boolean rearRightReverse = true;                           /**/
+    /**/boolean frontLeftReverse = false;                          /**/
+    /**/boolean rearLeftReverse = false;                           /**/
+    /**////////////////////____________________/////////////////////**/
+    /**////////////////////|JOYSTICK CONSTANTS|/////////////////////**/
+    /**////////////////////|__________________|/////////////////////**/
     /**/int visionProcessingBtn = 2;                               /**/
     /**/int cameraToggleBtn = 3;                                   /**/
     /**/////////////////////////////////////////////////////////////**/
     /**/int grabClawBtn = 0;                                       /**/
     /**/int liftClawBtn = 1;                                       /**/
     /**/////////////////////////////////////////////////////////////**/
+    /**/Joystick driveJoystick = new Joystick(0);                  /**/
+    /**/Joystick winchJoystick = new Joystick(1);                  /**/
+    /**/////////////////////////////////////////////////////////////**/
+    /**/Joystick.AxisType forwardAxis = Joystick.AxisType.kY;      /**/
+    /**/Joystick.AxisType strafeAxis = Joystick.AxisType.kX;       /**/
+    /**/Joystick.AxisType rotateAxis = Joystick.AxisType.kTwist;   /**/
+    /**/Joystick.AxisType winchAxis = Joystick.AxisType.kY;        /**/
+    /**///////////////////______________________////////////////////**/
+    /**///////////////////|AUTONOMOUS CONSTANTS|////////////////////**/
+    /**///////////////////|____________________|////////////////////**/
+    /**/double driveForwardDistance = 1000;                        /**/
+    /**/double minGearDistance = 450;                              /**/
+    /**/////////////////////////////////////////////////////////////**/
     
     
     
+   
     
     
     
@@ -71,12 +91,12 @@ public class Robot extends IterativeRobot {
     UsbCamera mainCamera;
     UsbCamera winchCamera;
     DigitalInput clawButton = new DigitalInput(0);
+    double frontRangefinderOffset = 400;
+    double backRangefinderOffset = 220;
     
     //joystick stuff
-    Boolean[] buttonState = new Boolean[12];//THE BUTTON STATES ARE 1 LESS THAN THE NUMBER PRINTED ON THE JOYSTICK
-    Boolean[] prevButtonState = new Boolean[12];
-    Joystick j = new Joystick(0);
-    Double throttleValue;
+    Boolean[] buttonState = new Boolean[driveJoystick.getButtonCount()];//THE BUTTON STATES ARE 1 LESS THAN THE NUMBER PRINTED ON THE JOYSTICK
+    Boolean[] prevButtonState = new Boolean[driveJoystick.getButtonCount()];
     
     //motor stuff                  front left       back left        front right      back right       winch 1          winch 2
     CANTalon[] CANTalonList = {new CANTalon(0), new CANTalon(1), new CANTalon(2), new CANTalon(3), new CANTalon(4), new CANTalon(5)};
@@ -112,6 +132,7 @@ public class Robot extends IterativeRobot {
 	private Thread visionThread;
 	private double centerX = 0.0;
 	boolean cam0 = true;
+	boolean cam0ForOtherThread = true;
     Mat image = new Mat();
 	
 	private final Object imgLock = new Object();
@@ -149,8 +170,10 @@ public class Robot extends IterativeRobot {
         SmartDashboard.putData("Auto choices", chooser);
         c.setClosedLoopControl(true);
         
-        drive.setInvertedMotor(MotorType.kFrontRight, true);
-        drive.setInvertedMotor(MotorType.kRearRight, true);
+        drive.setInvertedMotor(MotorType.kFrontRight, frontRightReverse);
+        drive.setInvertedMotor(MotorType.kRearRight, rearRightReverse);
+        drive.setInvertedMotor(MotorType.kFrontLeft, frontLeftReverse);
+        drive.setInvertedMotor(MotorType.kRearLeft, rearLeftReverse);
         
         //CAMERA STUFF
 		for(int i = 0; i<10; i++){
@@ -207,7 +230,7 @@ public class Robot extends IterativeRobot {
 			while (!Thread.interrupted()) {
 				// Tell the CvSink to grab a frame from the camera and put it
 				// in the source mat.  If there is an error notify the output.
-				cameraToggleBtnState = j.getRawButton(cameraToggleBtn);
+				cameraToggleBtnState = driveJoystick.getRawButton(cameraToggleBtn);
 				if(cameraToggleBtnState&&!prevCameraToggleBtnState){
 					cam0 = !cam0;
 				}
@@ -230,7 +253,7 @@ public class Robot extends IterativeRobot {
 				// Put a rectangle on the image
 				// Give the output stream a new image to display
 				outputStream.putFrame(mat);
-				prevCameraToggleBtnState = j.getRawButton(cameraToggleBtn);
+				prevCameraToggleBtnState = driveJoystick.getRawButton(cameraToggleBtn);
 			}
 		});
 	    visionThread.start();
@@ -259,10 +282,16 @@ public class Robot extends IterativeRobot {
     public void autonomousPeriodic(){
     	switch(autoSelected) {
     	case center://center
-    		if(autonomousStep==0){//drive towards peg until at specified distance
-    			if(frontRangefinder.getAverageValue()*1024 > 300/*Specified distance*/){
+    	default:
+    		if(autonomousStep == -1){
+    			grabClaw.set(close);
+    			liftClaw.set(up);
+    			autonomousStep++;
+    		}
+    		else if(autonomousStep==0){//drive towards peg until at specified distance
+    			if(frontRangefinder.getAverageValue()*1024 > frontRangefinderOffset + minGearDistance){
     				autonMotorSpeed = rampUp(autonMotorSpeed,.01,.2);
-	    			drive.arcadeDrive(autonMotorSpeed, (turnAverage * 0.005));
+	    			drive.arcadeDrive((turnAverage/240), -autonMotorSpeed);
 	    			double centerX;
 	    			synchronized (imgLock) {
 	    				centerX = this.centerX;
@@ -301,36 +330,41 @@ public class Robot extends IterativeRobot {
     		}
             break;
     	case left://left
-    		if(autonomousStep==0){//Initialize stuff like gyro
+    		if(autonomousStep == -1){
+    			grabClaw.set(close);
+    			liftClaw.set(up);
+    			autonomousStep++;
+    		}
+    		else if(autonomousStep==0){//Initialize stuff like gyro
     			gyro.reset();
     			liftClaw.set(true);
     			autonomousStep++;
     		}else if(autonomousStep == 1){//drive forward until at the right distance
-			    if(backRangefinder.getAverageValue()*1024 < 0/*put real number here*/){
+			    if(backRangefinder.getAverageValue()*1024 < backRangefinderOffset+driveForwardDistance){
 	    			autonMotorSpeed = rampUp(autonMotorSpeed, .03, THREE_QUARTERS_SPEED);
-			        drive.arcadeDrive(autonMotorSpeed, gyro.getAngle()*-0.03);
+			        drive.arcadeDrive(gyro.getAngle()*-0.03, -autonMotorSpeed);
 		        }else{
 		        	autonomousStep++;
 		        }
     		}else if(autonomousStep==2){//stop driving until stopped
     			if(autonMotorSpeed !=0){
 	    			autonMotorSpeed = rampDown(autonMotorSpeed, .05, 0);
-			        drive.arcadeDrive(autonMotorSpeed, gyro.getAngle()*-0.03);
+	    			drive.arcadeDrive(gyro.getAngle()*-0.03, -autonMotorSpeed);
     			}else{
     				autonomousStep++;
     				gyro.reset();
     			}
     		}else if(autonomousStep==3){//rotate towards peg until rotated
     			if(gyro.getAngle()<60){
-    				drive.arcadeDrive(0, .2);
+    				drive.arcadeDrive(.2, 0);
     			}else{
     				autonomousStep++;
     				gyro.reset();
     			}
     		}else if(autonomousStep==4){//drive towards peg until at specified distance
-    			if(frontRangefinder.getAverageValue()*1024 > 300/*Specified distance*/){
+    			if(frontRangefinder.getAverageValue()*1024 > frontRangefinderOffset + minGearDistance){
     				autonMotorSpeed = rampUp(autonMotorSpeed,.01,.2);
-	    			drive.arcadeDrive(autonMotorSpeed, (turnAverage * 0.005));
+    				drive.arcadeDrive((turnAverage/240), autonMotorSpeed);
 	    			double centerX;
 	    			synchronized (imgLock) {
 	    				centerX = this.centerX;
@@ -369,37 +403,41 @@ public class Robot extends IterativeRobot {
     		}
             break;
     	case right:
-    	default:
-    		if(autonomousStep==0){//Initialize stuff like gyro
+    		if(autonomousStep == -1){
+    			grabClaw.set(close);
+    			liftClaw.set(up);
+    			autonomousStep++;
+    		}
+    		else if(autonomousStep==0){//Initialize stuff like gyro
     			gyro.reset();
     			liftClaw.set(true);
     			autonomousStep++;
     		}else if(autonomousStep == 1){//drive forward until at the right distance
-			    if(backRangefinder.getAverageValue()*1024 < 0/*put real number here*/){
+    			if(backRangefinder.getAverageValue()*1024 < backRangefinderOffset+driveForwardDistance){
 	    			autonMotorSpeed = rampUp(autonMotorSpeed, .03, THREE_QUARTERS_SPEED);
-			        drive.arcadeDrive(autonMotorSpeed, gyro.getAngle()*-0.03);
+	    			drive.arcadeDrive(gyro.getAngle()*-0.03, -autonMotorSpeed);
 		        }else{
 		        	autonomousStep++;
 		        }
     		}else if(autonomousStep==2){//stop driving until stopped
     			if(autonMotorSpeed !=0){
 	    			autonMotorSpeed = rampDown(autonMotorSpeed, .05, 0);
-			        drive.arcadeDrive(autonMotorSpeed, gyro.getAngle()*-0.03);
+	    			drive.arcadeDrive(gyro.getAngle()*-0.03, -autonMotorSpeed);
     			}else{
     				autonomousStep++;
     				gyro.reset();
     			}
     		}else if(autonomousStep==3){//rotate towards peg until rotated
     			if(gyro.getAngle()>-60){
-    				drive.arcadeDrive(0, -.2);
+    				drive.arcadeDrive(-.2, 0);
     			}else{
     				autonomousStep++;
     				gyro.reset();
     			}
     		}else if(autonomousStep==4){//drive towards peg until at specified distance
-    			if(frontRangefinder.getAverageValue()*1024 > 300/*Specified distance*/){
+    			if(frontRangefinder.getAverageValue()*1024 > frontRangefinderOffset + minGearDistance){
     				autonMotorSpeed = rampUp(autonMotorSpeed,.01,.2);
-	    			drive.arcadeDrive(autonMotorSpeed, (turnAverage * 0.005));
+    				drive.arcadeDrive((turnAverage/240), -autonMotorSpeed);
 	    			double centerX;
 	    			synchronized (imgLock) {
 	    				centerX = this.centerX;
@@ -445,22 +483,19 @@ public class Robot extends IterativeRobot {
      */
     public void teleopPeriodic() {
     	if(firstTime){//if this is the first time running the teleopPeriodic loop
-    		grabClaw.set(DoubleSolenoid.Value.kReverse);
-    		liftClaw.set(true);
+    		grabClaw.set(open);
+    		liftClaw.set(down);
     		timer.reset();
     		firstTime = false;
     	}
     	//set the button states and throttle value
     	for(int i = 0; i < buttonState.length; i++){
-    		buttonState[i] = j.getRawButton(i+1);
+    		buttonState[i] = winchJoystick.getRawButton(i+1);
     	}
     	clawButtonState = clawButton.get();
-    	SmartDashboard.putBoolean("Claw Button", clawButton.get());
-    	throttleValue = (j.getThrottle() - 1)/2;
     	
     	//if button #3 is HELD, run the vision processing, otherwise drive
 		if(buttonState[visionProcessingBtn]){
-			drive.arcadeDrive(0, (turnAverage * 0.005));
 			double centerX;
 			synchronized (imgLock) {
 				centerX = this.centerX;
@@ -489,11 +524,12 @@ public class Robot extends IterativeRobot {
 			if(valsUsed == 0){
 				turnAverage = 0;
 			}
+			drive.arcadeDrive((turnAverage/240), driveJoystick.getAxis(forwardAxis));
 			SmartDashboard.putNumber("Turn Last Used Value", prevTurnValues[9]);
 			SmartDashboard.putNumber("Turn Value", turn);
 			SmartDashboard.putNumber("Turn Average Value", turnAverage);
 		}else{
-			drive.mecanumDrive_Cartesian(j.getX(), j.getY(), j.getTwist(),0);
+			drive.mecanumDrive_Cartesian(driveJoystick.getAxis(strafeAxis), driveJoystick.getAxis(forwardAxis), driveJoystick.getAxis(rotateAxis),0);
 		}
 		
 		//do pneumatics
@@ -520,23 +556,33 @@ public class Robot extends IterativeRobot {
     			liftClaw.set(up);
     		}
     	}
-    	
-    	//set winches to forward or backwards depending on the button
-    	if(buttonState[winchUpBtn]){
-    		CANTalonList[4].set(throttleValue);
-    		CANTalonList[5].set(-throttleValue);
-    	}else if(buttonState[winchDownBtn]){
-    		CANTalonList[4].set(-throttleValue);
-    		CANTalonList[5].set(throttleValue);
-    	}else{
-    		CANTalonList[4].set(0);
-    		CANTalonList[5].set(0);
+    	if(buttonState[cameraToggleBtn]&&!prevButtonState[cameraToggleBtn]){
+    		if(cam0ForOtherThread){
+    			cam0ForOtherThread = false;
+    			drive = new RobotDrive(CANTalonList[3], CANTalonList[2], CANTalonList[1], CANTalonList[0]);
+    			drive.setInvertedMotor(MotorType.kFrontRight, !frontRightReverse);
+    	        drive.setInvertedMotor(MotorType.kRearRight, !rearRightReverse);
+    	        drive.setInvertedMotor(MotorType.kFrontLeft, !frontLeftReverse);
+    	        drive.setInvertedMotor(MotorType.kRearLeft, !rearLeftReverse);
+    			
+    		}else{
+    			cam0ForOtherThread = true;
+    			drive = new RobotDrive(CANTalonList[0], CANTalonList[1], CANTalonList[2], CANTalonList[3]);
+    			drive.setInvertedMotor(MotorType.kFrontRight, frontRightReverse);
+    	        drive.setInvertedMotor(MotorType.kRearRight, rearRightReverse);
+    	        drive.setInvertedMotor(MotorType.kFrontLeft, frontLeftReverse);
+    	        drive.setInvertedMotor(MotorType.kRearLeft, rearLeftReverse);
+    		}
     	}
+    	//set winches to forward or backwards depending on the button
+    	CANTalonList[4].set(winchJoystick.getY());
+    	CANTalonList[5].set(-winchJoystick.getY());
     	
         
         //previous button state thingy
         for(int i = 0; i < prevButtonState.length; i++){
-    		prevButtonState[i] = j.getRawButton(i+1);
+    		prevButtonState[i] = driveJoystick.getRawButton(i+1);
+    		
     	}
         prevClawButtonState = clawButton.get();
     }
