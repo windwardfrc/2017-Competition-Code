@@ -37,43 +37,43 @@ public class Robot extends IterativeRobot {
     
     
     
-    ///////////////////////_________________////////////////////////**/
-    /**////////////////////|ROBOT CONSTANTS|////////////////////////**/
-    /**////////////////////|_______________|////////////////////////**/
-    /**/DoubleSolenoid.Value open = DoubleSolenoid.Value.kForward; /**/
-    /**/DoubleSolenoid.Value close = DoubleSolenoid.Value.kReverse;/**/
-    /**/////////////////////////////////////////////////////////////**/
-    /**/boolean up = true;                                         /**/
-    /**/boolean down = false;                                      /**/
-    /**/////////////////////////////////////////////////////////////**/
-    /**/double delayOfLift = .25;                                  /**/
-    /**/////////////////////////////////////////////////////////////**/
-    /**/boolean frontRightReverse = true;                          /**/
-    /**/boolean rearRightReverse = true;                           /**/
-    /**/boolean frontLeftReverse = false;                          /**/
-    /**/boolean rearLeftReverse = false;                           /**/
-    /**////////////////////____________________/////////////////////**/
-    /**////////////////////|JOYSTICK CONSTANTS|/////////////////////**/
-    /**////////////////////|__________________|/////////////////////**/
-    /**/int visionProcessingBtn = 2;                               /**/
-    /**/int cameraToggleBtn = 3;                                   /**/
-    /**/////////////////////////////////////////////////////////////**/
-    /**/int grabClawBtn = 0;                                       /**/
-    /**/int liftClawBtn = 1;                                       /**/
-    /**/////////////////////////////////////////////////////////////**/
-    /**/Joystick driveJoystick = new Joystick(0);                  /**/
-    /**/Joystick winchJoystick = new Joystick(1);                  /**/
-    /**/////////////////////////////////////////////////////////////**/
-    /**/Joystick.AxisType forwardAxis = Joystick.AxisType.kY;      /**/
-    /**/Joystick.AxisType strafeAxis = Joystick.AxisType.kX;       /**/
-    /**/Joystick.AxisType rotateAxis = Joystick.AxisType.kTwist;   /**/
-    /**/Joystick.AxisType winchAxis = Joystick.AxisType.kY;        /**/
-    /**///////////////////______________________////////////////////**/
-    /**///////////////////|AUTONOMOUS CONSTANTS|////////////////////**/
-    /**///////////////////|____________________|////////////////////**/
-    /**/double driveForwardDistance = 1000;                        /**/
-    /**/double minGearDistance = 450;                              /**/
-    /**/////////////////////////////////////////////////////////////**/
+    //////////////////////////_________________///////////////////////////**/
+    /**///////////////////////|ROBOT CONSTANTS|///////////////////////////**/
+    /**///////////////////////|_______________|///////////////////////////**/
+    /**/final DoubleSolenoid.Value open = DoubleSolenoid.Value.kForward; /**/
+    /**/final DoubleSolenoid.Value close = DoubleSolenoid.Value.kReverse;/**/
+    /**///////////////////////////////////////////////////////////////////**/
+    /**/final boolean up = true;                                         /**/
+    /**/final boolean down = false;                                      /**/
+    /**///////////////////////////////////////////////////////////////////**/
+    /**/final double delayOfLift = .25;                                  /**/
+    /**///////////////////////////////////////////////////////////////////**/
+    /**/final boolean frontRightReverse = true;                          /**/
+    /**/final boolean rearRightReverse = true;                           /**/
+    /**/final boolean frontLeftReverse = false;                          /**/
+    /**/final boolean rearLeftReverse = false;                           /**/
+    /**///////////////////////____________________////////////////////////**/
+    /**///////////////////////|JOYSTICK CONSTANTS|////////////////////////**/
+    /**///////////////////////|__________________|////////////////////////**/
+    /**/final int visionProcessingBtn = 11;                              /**/   //3D pro = 11       dual = 4
+    /**/final int cameraToggleBtn = 10;                                  /**/   //3D pro = 10       dual = 6
+    /**///////////////////////////////////////////////////////////////////**/
+    /**/final int grabClawBtn = 0;                                       /**/   //3D pro = 0        dual = 7
+    /**/final int liftClawBtn = 1;                                       /**/   //3D pro = 1        dual = 5
+    /**///////////////////////////////////////////////////////////////////**/
+    /**/final Joystick driveJoystick = new Joystick(0);                  /**/
+    /**/final Joystick winchJoystick = new Joystick(1);                  /**/
+    /**///////////////////////////////////////////////////////////////////**/
+    /**/final Joystick.AxisType forwardAxis = Joystick.AxisType.kY;      /**/
+    /**/final Joystick.AxisType strafeAxis = Joystick.AxisType.kX;       /**/
+    /**/final Joystick.AxisType rotateAxis = Joystick.AxisType.kTwist;   /**/   //3D pro = kTwist   dual = kZ
+    /**/final Joystick.AxisType winchAxis = Joystick.AxisType.kY;        /**/
+    /**//////////////////////______________________///////////////////////**/
+    /**//////////////////////|AUTONOMOUS CONSTANTS|///////////////////////**/
+    /**//////////////////////|____________________|///////////////////////**/
+    /**/final double driveForwardDistance = 1000;                        /**/
+    /**/final double minGearDistance = 450;                              /**/
+    /**///////////////////////////////////////////////////////////////////**/
     
     
     
@@ -273,7 +273,6 @@ public class Robot extends IterativeRobot {
     	autoSelected = (String) chooser.getSelected();
 //		autoSelected = SmartDashboard.getString("Auto Selector", defaultAuto);
 		System.out.println("Auto selected: " + autoSelected);
-		grabClaw.set(DoubleSolenoid.Value.kForward);//close the claw
     }
 
     /**
@@ -283,12 +282,12 @@ public class Robot extends IterativeRobot {
     	switch(autoSelected) {
     	case center://center
     	default:
-    		if(autonomousStep == -1){
+    		if(autonomousStep == 0){
     			grabClaw.set(close);
     			liftClaw.set(up);
     			autonomousStep++;
     		}
-    		else if(autonomousStep==0){//drive towards peg until at specified distance
+    		else if(autonomousStep==1){//drive towards peg until at specified distance
     			if(frontRangefinder.getAverageValue()*1024 > frontRangefinderOffset + minGearDistance){
     				autonMotorSpeed = rampUp(autonMotorSpeed,.01,.2);
 	    			drive.arcadeDrive((turnAverage/240), -autonMotorSpeed);
@@ -324,20 +323,16 @@ public class Robot extends IterativeRobot {
     				drive.arcadeDrive(0,0);
     				autonomousStep++;
     			}
-    		}else if (autonomousStep == 1){//open claw
-    			grabClaw.set(DoubleSolenoid.Value.kReverse);
+    		}else if (autonomousStep == 2){//open claw
+    			grabClaw.set(open);
     			autonomousStep++;
     		}
             break;
     	case left://left
-    		if(autonomousStep == -1){
+    		if(autonomousStep==0){//Initialize stuff like gyro
+    			gyro.reset();
     			grabClaw.set(close);
     			liftClaw.set(up);
-    			autonomousStep++;
-    		}
-    		else if(autonomousStep==0){//Initialize stuff like gyro
-    			gyro.reset();
-    			liftClaw.set(true);
     			autonomousStep++;
     		}else if(autonomousStep == 1){//drive forward until at the right distance
 			    if(backRangefinder.getAverageValue()*1024 < backRangefinderOffset+driveForwardDistance){
@@ -398,19 +393,15 @@ public class Robot extends IterativeRobot {
     				autonomousStep++;
     			}
     		}else if (autonomousStep == 5){//open claw
-    			grabClaw.set(DoubleSolenoid.Value.kReverse);
+    			grabClaw.set(open);
     			autonomousStep++;
     		}
             break;
     	case right:
-    		if(autonomousStep == -1){
+    		if(autonomousStep==0){//Initialize stuff like gyro
+    			gyro.reset();
     			grabClaw.set(close);
     			liftClaw.set(up);
-    			autonomousStep++;
-    		}
-    		else if(autonomousStep==0){//Initialize stuff like gyro
-    			gyro.reset();
-    			liftClaw.set(true);
     			autonomousStep++;
     		}else if(autonomousStep == 1){//drive forward until at the right distance
     			if(backRangefinder.getAverageValue()*1024 < backRangefinderOffset+driveForwardDistance){
@@ -471,7 +462,7 @@ public class Robot extends IterativeRobot {
     				autonomousStep++;
     			}
     		}else if (autonomousStep == 5){//open claw
-    			grabClaw.set(DoubleSolenoid.Value.kReverse);
+    			grabClaw.set(open);
     			autonomousStep++;
     		}
             break;
@@ -534,11 +525,11 @@ public class Robot extends IterativeRobot {
 		
 		//do pneumatics
 		if(clawButtonState&&!prevClawButtonState){
-			grabClaw.set(DoubleSolenoid.Value.kForward);
+			grabClaw.set(close);
 			timer.start();
 		}
 		if(timer.get()>=delayOfLift){
-			liftClaw.set(false);
+			liftClaw.set(up);
 			timer.stop();
 			timer.reset();
 		}
